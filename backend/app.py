@@ -235,8 +235,8 @@ def process_completed_file_route():
 def download_file(file_type: str, session_id: str):
     """Endpoint de téléchargement amélioré"""
     try:
-        session = session_service.get_session(session_id)
-        if not session:
+        session_data = session_service.get_session_data(session_id)
+        if not session_data:
             return jsonify({'error': 'Session non trouvée'}), 404
         
         filepath = None
@@ -244,13 +244,13 @@ def download_file(file_type: str, session_id: str):
         mimetype = None
 
         if file_type == 'template':
-            filepath = session.template_file_path
+            filepath = session_data['template_file_path']
             if not filepath:
                 return jsonify({'error': 'Template non généré'}), 404
             download_name = os.path.basename(filepath)
             mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         elif file_type == 'final':
-            filepath = session.final_file_path
+            filepath = session_data['final_file_path']
             if not filepath:
                 return jsonify({'error': 'Fichier final non généré'}), 404
             download_name = os.path.basename(filepath)
@@ -307,11 +307,11 @@ def delete_session(session_id: str):
 def analyze_file_format(session_id: str):
     """Endpoint pour analyser le format d'un fichier uploadé"""
     try:
-        session = session_service.get_session(session_id)
-        if not session:
+        session_data = session_service.get_session_data(session_id)
+        if not session_data:
             return jsonify({'error': 'Session non trouvée'}), 404
         
-        filepath = session.original_file_path
+        filepath = session_data['original_file_path']
         if not os.path.exists(filepath):
             return jsonify({'error': 'Fichier non trouvé'}), 404
         

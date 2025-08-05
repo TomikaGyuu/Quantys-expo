@@ -42,9 +42,49 @@ class SessionService:
                 # Mettre à jour last_accessed
                 session.last_accessed = datetime.utcnow()
                 db_session.commit()
+                # Rafraîchir l'objet pour s'assurer qu'il reste attaché
+                db_session.refresh(session)
             return session
         except Exception as e:
             logger.error(f"Erreur récupération session {session_id}: {e}")
+            return None
+        finally:
+            db_session.close()
+    
+    def get_session_data(self, session_id: str) -> dict:
+        """Récupère les données d'une session sous forme de dictionnaire"""
+        db_session = self.db.get_session()
+        try:
+            session = db_session.query(Session).filter(Session.id == session_id).first()
+            if session:
+                # Mettre à jour last_accessed
+                session.last_accessed = datetime.utcnow()
+                db_session.commit()
+                
+                # Retourner un dictionnaire avec toutes les données nécessaires
+                return {
+                    'id': session.id,
+                    'original_filename': session.original_filename,
+                    'original_file_path': session.original_file_path,
+                    'template_file_path': session.template_file_path,
+                    'completed_file_path': session.completed_file_path,
+                    'final_file_path': session.final_file_path,
+                    'status': session.status,
+                    'inventory_date': session.inventory_date,
+                    'nb_articles': session.nb_articles,
+                    'nb_lots': session.nb_lots,
+                    'total_quantity': session.total_quantity,
+                    'total_discrepancy': session.total_discrepancy,
+                    'adjusted_items_count': session.adjusted_items_count,
+                    'strategy_used': session.strategy_used,
+                    'created_at': session.created_at,
+                    'updated_at': session.updated_at,
+                    'last_accessed': session.last_accessed,
+                    'header_lines': session.header_lines
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Erreur récupération données session {session_id}: {e}")
             return None
         finally:
             db_session.close()

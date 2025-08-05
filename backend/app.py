@@ -178,8 +178,8 @@ def process_completed_file_route():
         strategy = request.form.get('strategy', 'FIFO')
         
         # Vérifier que la session existe
-        session = session_service.get_session(session_id)
-        if not session:
+        session_data = session_service.get_session_data(session_id)
+        if not session_data:
             return jsonify({'error': 'Session non trouvée'}), 404
         
         if not file.filename.lower().endswith(('.xlsx', '.xls')):
@@ -307,11 +307,11 @@ def delete_session(session_id: str):
 def analyze_file_format(session_id: str):
     """Endpoint pour analyser le format d'un fichier uploadé"""
     try:
-        session_data = session_service.get_session_data(session_id)
-        if not session_data:
+        session = session_service.get_session(session_id)
+        if not session:
             return jsonify({'error': 'Session non trouvée'}), 404
         
-        filepath = session_data['original_file_path']
+        filepath = session.original_file_path
         if not os.path.exists(filepath):
             return jsonify({'error': 'Fichier non trouvé'}), 404
         

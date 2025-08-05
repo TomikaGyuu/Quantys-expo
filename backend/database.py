@@ -27,7 +27,8 @@ class DatabaseManager:
         self.SessionLocal = scoped_session(sessionmaker(
             autocommit=False,
             autoflush=False,
-            bind=self.engine
+            bind=self.engine,
+            expire_on_commit=False  # Évite que les objets deviennent détachés après commit
         ))
         
         self.create_tables()

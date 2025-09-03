@@ -13,7 +13,7 @@ Le backend est le **cœur logique** de l'application. Les évolutions suivantes 
 - **Problème :** Les données sont actuellement en mémoire (`self.sessions`), donc perdues au redémarrage.
 - **Solution :** Intégrer une base de données :
   - **SQLite** (pour une version locale simple)
-  - **PostgreSQL** (pour un usage en production)
+  - **MySQL** (pour un usage en production)
 - **Stockage :**
   - Métadonnées de session (ID, statut, chemins, dates)
   - DataFrames intermédiaires sérialisés (JSON, Parquet) ou insérés dans des tables si structure fixe
@@ -55,6 +55,12 @@ Le frontend est la **vitrine** de l’application. Les améliorations ci-dessous
   - Affichage dynamique de l’étape actuelle :  
     `→ Validation`, `→ Agrégation`, `→ Calcul d’écarts`, etc.
   - **Barres de progression**, **icônes animées**
+
+### 📋 2. Amélioration de la Traçabilité *(IMPLÉMENTÉ)*
+
+- **✅ TERMINÉ :** Les quantités réelles saisies sont maintenant conservées dans la colonne G du fichier final
+- **Bénéfice :** Traçabilité complète des saisies d'inventaire dans le fichier Sage X3
+- **Impact :** Permet de vérifier les quantités saisies directement dans le système Sage X3
 
 ### 📋 2. Gestion Visuelle des Sessions
 

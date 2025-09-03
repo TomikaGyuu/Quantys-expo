@@ -12,8 +12,11 @@
 | Fonctionnalité | Description | Technologies |
 |----------------|------------|--------------|
 | **Import Sage X3** | Traitement des fichiers CSV avec en-têtes E/L et données S | Pandas, OpenPyXL |
+| **Gestion Multi-Inventaires** | Support des fichiers avec plusieurs lignes L (inventaires multiples) | Python, Pandas |
+| **Types de Lots Avancés** | Reconnaissance de 3 types de numéros de lot avec priorités | RegEx, Python |
 | **Calcul Automatique** | Détection des écarts entre stocks théoriques/réels | NumPy, Pandas |
-| **Répartition Intelligente** | Distribution FIFO/LIFO des écarts par ancienneté des lots | Python, Pandas |
+| **Répartition Intelligente** | Distribution FIFO/LIFO avec priorité sur les types de lots | Python, Pandas |
+| **Traçabilité Complète** | Conservation des quantités réelles saisies dans le fichier final | Python, Pandas |
 | **API RESTful** | Interface moderne pour intégration | Flask, CORS |
 | **Gestion de Sessions** | Suivi complet des opérations | Python, Logging |
 
@@ -48,6 +51,48 @@ python app.py
 ```
 
 ## 📚 Utilisation
+
+### Structure du Fichier Final
+
+Le fichier CSV final généré contient les quantités réelles saisies dans la **colonne G** (`QUANTITE_REELLE_IN_INPUT`), permettant une traçabilité complète :
+
+- **Colonne F** : Quantité théorique ajustée (après calcul des écarts)
+- **Colonne G** : Quantité réelle saisie lors de l'inventaire (**NOUVELLE FONCTIONNALITÉ**)
+- **Colonne H** : Indicateur de compte (1=normal, 2=ajusté)
+
+```csv
+S;SESSION;INV001;1000;SITE01;95;95;2;ART001;EMP001;A;UN;0;ZONE1;LOT001
+#                        ↑  ↑  ↑
+#                        F  G  H
+#                     Théo Réel Ind
+```
+
+### Types de Numéros de Lot Supportés
+
+L'application reconnaît et traite les numéros de lot avec ordre de priorité :
+
+1. **Type 1 (Priorité Haute)** : `CPKU070725xxxx`, `CB2TV020425xxxx`
+   - Format : `[SITE][DDMMYY][NUMERO]`
+   - Extraction automatique de la date pour tri FIFO/LIFO
+
+2. **Type 2 (Priorité Moyenne)** : `LOT311224`
+   - Format : `LOT[DDMMYY]`
+   - Extraction de la date pour tri chronologique
+
+3. **LOTECART (Cas Spécial)** : Détecté quand quantité théorique = 0
+   - Détecté automatiquement quand quantité théorique = 0 ET quantité réelle > 0
+   - Pas de tri par date, premier lot disponible
+
+### Gestion des Inventaires Multiples
+
+Support des fichiers avec plusieurs lignes L :
+```csv
+E;BKE022508SES00000003;test depot conf;1;BKE02;;;;;;;;;;
+L;BKE022508SES00000003;BKE022508INV00000006;1;BKE02;;;;;;;;;;
+L;BKE022508SES00000003;BKE022508INV00000007;1;BKE02;;;;;;;;;;
+S;BKE022508SES00000003;BKE022508INV00000006;1000;BKE02;...
+S;BKE022508SES00000003;BKE022508INV00000007;2000;BKE02;...
+```
 
 sequenceDiagram
     Utilisateur->>Backend: 1. Upload fichier CSV

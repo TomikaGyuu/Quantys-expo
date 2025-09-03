@@ -213,7 +213,7 @@ class LotecartProcessor:
                 # Modifications spécifiques LOTECART
                 new_parts[3] = str(current_line_number)  # RANG - nouveau numéro
                 new_parts[5] = str(int(adjustment["QUANTITE_CORRIGEE"]))  # QUANTITE
-                new_parts[6] = str(int(adjustment["QUANTITE_CORRIGEE"]))  # QUANTITE_REELLE_IN_INPUT
+                new_parts[6] = str(int(adjustment["QUANTITE_CORRIGEE"]))  # QUANTITE_REELLE_IN_INPUT (colonne G - quantité réelle saisie)
                 new_parts[7] = "2"  # INDICATEUR_COMPTE - toujours 2 pour LOTECART
                 new_parts[14] = "LOTECART"  # NUMERO_LOT - identifiant spécial
                 
@@ -226,7 +226,7 @@ class LotecartProcessor:
                 
                 logger.info(
                     f"✅ Ligne LOTECART générée: {adjustment['CODE_ARTICLE']} "
-                    f"(Ligne={current_line_number}, Qté={adjustment['QUANTITE_CORRIGEE']})"
+                    f"(Ligne={current_line_number}, Qté théo={adjustment['QUANTITE_CORRIGEE']}, Qté réelle saisie={adjustment['QUANTITE_CORRIGEE']})"
                 )
             
             logger.info(f"🎯 {len(new_lines)} nouvelles lignes LOTECART générées")

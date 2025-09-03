@@ -409,8 +409,8 @@ class SageX3Processor:
 
                         key = (code_article, numero_inventaire, numero_lot)
                         
-                        # Récupérer la quantité réelle depuis le template complété
-                        quantite_reelle = real_quantities_dict.get(key, 0)
+                        # Récupérer la quantité réelle saisie depuis le template complété
+                        quantite_reelle_saisie = real_quantities_dict.get(key, 0)
 
                         # Vérifier s'il y a un ajustement pour cette ligne
                         if key in adjustments_dict:
@@ -419,11 +419,11 @@ class SageX3Processor:
                             
                             # Pour les LOTECART, utiliser la quantité réelle comme quantité théorique
                             if adjustment["TYPE_LOT"] == "lotecart":
-                                parts[5] = str(int(quantite_reelle))  # Quantité théorique = quantité réelle
-                                parts[6] = str(int(quantite_reelle))  # Quantité réelle
+                                parts[5] = str(int(quantite_reelle_saisie))  # Quantité théorique = quantité réelle saisie
+                                parts[6] = str(int(quantite_reelle_saisie))  # Quantité réelle saisie (colonne G)
                             else:
                                 parts[5] = str(int(adjustment["QUANTITE_CORRIGEE"]))  # Quantité théorique ajustée
-                                parts[6] = str(int(quantite_reelle))  # Quantité réelle
+                                parts[6] = str(int(quantite_reelle_saisie))  # Quantité réelle saisie (colonne G)
 
                             # S'assurer que le numéro de lot est correct (colonne 14, index 14)
                             if len(parts) > 14:
@@ -437,32 +437,35 @@ class SageX3Processor:
 
                             lines_adjusted += 1
                             logger.debug(
-                                f"Ligne ajustée: {code_article} - {numero_lot} - Qté théo: {parts[5]}, Qté réelle: {parts[6]}"
+                                f"Ligne ajustée: {code_article} - {numero_lot} - Qté théo ajustée: {parts[5]}, Qté réelle saisie: {parts[6]}"
                             )
                         else:
-                            # Même pour les lignes non ajustées, mettre à jour la quantité réelle
-                            if quantite_reelle is not None:
-                                parts[6] = str(int(quantite_reelle))
+                            # Même pour les lignes non ajustées, mettre à jour la quantité réelle saisie (colonne G)
+                            if quantite_reelle_saisie is not None and quantite_reelle_saisie != 0:
+                                parts[6] = str(int(quantite_reelle_saisie))
+                            else:
+                                # Si pas de saisie, garder 0 dans la colonne G
+                                parts[6] = "0"
 
                         # Vérifier si la quantité finale est nulle et mettre INDICATEUR_COMPTE à 2
                         quantite_finale = float(parts[5]) if parts[5] else 0
                         quantite_theorique_originale = float(
                             original_row.get("QUANTITE", 0)
                         )
-                        quantite_reelle_finale = float(parts[6]) if parts[6] else 0
+                        quantite_reelle_saisie_finale = float(parts[6]) if parts[6] else 0
 
                         # Mettre INDICATEUR_COMPTE à 2 dans les cas suivants :
                         # 1. La quantité théorique finale est 0 ET quantité réelle > 0 (LOTECART)
                         # 2. La quantité théorique originale était 0 (cas LOTECART détecté)
                         # 3. Les quantités théorique et réelle sont égales (pas d'écart)
                         if (
-                            (quantite_theorique_originale == 0 and quantite_reelle_finale > 0) or
-                            (quantite_finale == quantite_reelle_finale and quantite_reelle_finale > 0) or
+                            (quantite_theorique_originale == 0 and quantite_reelle_saisie_finale > 0) or
+                            (quantite_finale == quantite_reelle_saisie_finale and quantite_reelle_saisie_finale > 0) or
                             numero_lot == "LOTECART"
                         ) and len(parts) > 7:
                             parts[7] = "2"  # INDICATEUR_COMPTE à l'index 7
                             logger.debug(
-                                f"INDICATEUR_COMPTE mis à 2 pour {code_article} - {numero_lot} (qté théo finale: {quantite_finale}, qté réelle: {quantite_reelle_finale})"
+                                f"INDICATEUR_COMPTE mis à 2 pour {code_article} - {numero_lot} (qté théo finale: {quantite_finale}, qté réelle saisie: {quantite_reelle_saisie_finale})"
                             )
 
                         # Ajouter la ligne (ajustée ou originale)

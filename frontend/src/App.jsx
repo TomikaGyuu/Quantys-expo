@@ -3,6 +3,7 @@ import { Upload, Download, CheckCircle, AlertCircle, FileText } from 'lucide-rea
 import Header from './components/Header';
 import Guide from './components/Guide';
 import SessionManager from './components/SessionManager';
+import ProgressIndicator from './components/ProgressIndicator';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useToast } from './components/Toast';
 
@@ -23,9 +24,47 @@ const SageInventoryApp = () => {
 
     // Gestion des erreurs
     const [error, setError] = useState('');
+    
+    // Étapes du processus
+    const [currentStep, setCurrentStep] = useState(0);
+    const [progressDetails, setProgressDetails] = useState('');
+    
+    const processSteps = [
+        {
+            title: "Import du fichier Sage X3",
+            description: "Validation et traitement du fichier d'inventaire initial"
+        },
+        {
+            title: "Génération du template",
+            description: "Création du fichier Excel pour la saisie des quantités réelles"
+        },
+        {
+            title: "Saisie des quantités",
+            description: "Complétion du template avec les quantités réellement comptées"
+        },
+        {
+            title: "Calcul des écarts",
+            description: "Analyse des différences et répartition selon la stratégie FIFO"
+        },
+        {
+            title: "Génération du fichier final",
+            description: "Création du fichier CSV corrigé pour réimport dans Sage X3"
+        }
+    ];
 
     // URL de base de l'API
-    const API_BASE_URL = 'http://localhost:5000/api';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+
+    // Fonction helper pour créer un fichier mock
+    const createMockFile = (filename, size = 0) => {
+        return {
+            name: filename,
+            size: size,
+            type: filename.endsWith('.xlsx') ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv',
+            lastModified: Date.now(),
+            isMock: true // Flag pour identifier les fichiers mockés
+        };
+    };
 
     // Gestion du drag & drop
     const onDragOver = useCallback((e) => e.preventDefault(), []);
@@ -60,6 +99,8 @@ const SageInventoryApp = () => {
         formData.append('file', originalFile);
 
         setUploadStatus('uploading');
+        setCurrentStep(0);
+        setProgressDetails('Validation du format et traitement des données...');
         setError('');
 
         try {
@@ -73,6 +114,8 @@ const SageInventoryApp = () => {
             if (response.ok) {
                 setUploadStatus('success');
                 setUploadResult(data);
+                setCurrentStep(1);
+                setProgressDetails('Template prêt à être téléchargé');
                 showSuccess('Fichier traité avec succès !');
             } else {
                 throw new Error(data.error || 'Erreur lors du traitement du fichier');
@@ -82,6 +125,7 @@ const SageInventoryApp = () => {
             setError(err.message);
             showError(err.message);
             setUploadResult(null);
+            setProgressDetails('');
         }
     };
 
@@ -159,6 +203,8 @@ const SageInventoryApp = () => {
         formData.append('session_id', uploadResult.session_id);
 
         setProcessStatus('processing');
+        setCurrentStep(3);
+        setProgressDetails('Calcul des écarts et répartition FIFO en cours...');
         setError('');
 
         try {
@@ -172,6 +218,8 @@ const SageInventoryApp = () => {
             if (response.ok) {
                 setProcessStatus('success');
                 setProcessResult(data);
+                setCurrentStep(4);
+                setProgressDetails('Fichier final généré et prêt au téléchargement');
                 showSuccess('Traitement terminé avec succès !');
             } else {
                 throw new Error(data.error || 'Erreur lors du calcul des écarts');
@@ -181,6 +229,7 @@ const SageInventoryApp = () => {
             setError(err.message);
             showError(err.message);
             setProcessResult(null);
+            setProgressDetails('');
         }
     };
 
@@ -254,13 +303,69 @@ const SageInventoryApp = () => {
         setUploadResult(null);
         setProcessResult(null);
         setError('');
+        setCurrentStep(0);
+        setProgressDetails('');
         showInfo('Session réinitialisée');
     };
 
     // Gestion de la sélection de session
     const handleSessionSelect = (session) => {
-        // Logique pour reprendre une session existante
-        showInfo(`Session ${session.id} sélectionnée`);
+        // Restaurer l'état de l'application avec les données de la session
+        try {
+            // Réinitialiser d'abord l'état
+            setOriginalFile(null);
+            setCompletedFile(null);
+            setError('');
+            
+            // Simuler un fichier original pour l'affichage
+            const mockOriginalFile = {
+                name: session.original_filename || 'Fichier original',
+                size: 0
+            };
+            
+            // Restaurer les résultats selon le statut de la session
+            if (session.status === 'template_generated' || session.status === 'completed') {
+                setOriginalFile(mockOriginalFile);
+                setUploadStatus('success');
+                setUploadResult({
+                    session_id: session.id,
+                    stats: {
+                        nb_articles: session.stats?.nb_articles || 0,
+                        total_quantity: session.stats?.total_quantity || 0,
+                        nb_lots: session.stats?.nb_lots || 0
+                    }
+                });
+                
+                // Si la session est complètement terminée, restaurer aussi le résultat du traitement
+                if (session.status === 'completed') {
+                    setProcessStatus('success');
+                    setCurrentStep(4);
+                    setProgressDetails('Session terminée - Fichier final disponible');
+                    setProcessResult({
+                        final_url: `/api/download/final/${session.id}`,
+                        stats: {
+                            total_discrepancy: session.stats?.total_discrepancy || 0,
+                            adjusted_items: session.stats?.adjusted_items_count || 0,
+                            strategy_used: session.stats?.strategy_used || 'FIFO'
+                        }
+                    });
+                    showSuccess(`Session ${session.id} reprise - Traitement terminé`);
+                } else {
+                    setProcessStatus('idle');
+                    setProcessResult(null);
+                    setCurrentStep(1);
+                    setProgressDetails('Template disponible pour téléchargement');
+                    showSuccess(`Session ${session.id} reprise - Template disponible`);
+                }
+            } else {
+                // Pour les autres statuts, juste informer l'utilisateur
+                setCurrentStep(0);
+                setProgressDetails('');
+                showInfo(`Session ${session.id} sélectionnée (statut: ${session.status})`);
+            }
+        } catch (error) {
+            showError(`Erreur lors de la reprise de la session: ${error.message}`);
+        }
     };
 
     return (
@@ -282,6 +387,18 @@ const SageInventoryApp = () => {
                             <svg onClick={() => setError('')} className="fill-current h-6 w-6 text-red-500 cursor-pointer" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
                         </span>
                     </div>
+                )}
+
+                {/* Indicateur de progression */}
+                {(uploadStatus !== 'idle' || processStatus !== 'idle') && (
+                    <ProgressIndicator
+                        steps={processSteps}
+                        currentStep={currentStep}
+                        status={uploadStatus === 'error' || processStatus === 'error' ? 'error' : 
+                               uploadStatus === 'uploading' || processStatus === 'processing' ? 'processing' : 'idle'}
+                        error={error}
+                        details={progressDetails}
+                    />
                 )}
 
                 {/* Étape 1: Import fichier original */}
@@ -326,11 +443,13 @@ const SageInventoryApp = () => {
                                         <div>
                                             <p className="font-medium text-blue-900">{originalFile.name}</p>
                                             <p className="text-sm text-blue-700">
-                                                {(originalFile.size / 1024 / 1024).toFixed(2)} MB
+                                                {originalFile.isMock ? 'Session reprise' : `${(originalFile.size / 1024 / 1024).toFixed(2)} MB`}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex space-x-3">
+                                        {!originalFile.isMock && (
+                                            <>
                                         <button
                                             onClick={() => setOriginalFile(null)}
                                             className="px-4 py-2 text-sm text-blue-700 hover:text-blue-900 border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors duration-200"
@@ -343,6 +462,13 @@ const SageInventoryApp = () => {
                                         >
                                             Traiter le fichier
                                         </button>
+                                            </>
+                                        )}
+                                        {originalFile.isMock && (
+                                            <div className="px-4 py-2 text-sm text-green-700 bg-green-100 rounded-lg">
+                                                Session active
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -481,8 +607,8 @@ const SageInventoryApp = () => {
                                         <p className="text-2xl font-bold text-green-900">{processResult.stats.adjusted_items}</p>
                                     </div>
                                     <div className="bg-white rounded-lg p-4 border border-green-200 shadow-sm">
-                                        <p className="text-sm text-green-700 font-medium">Fichier généré</p>
-                                        <p className="text-sm font-mono text-green-900 break-all">Téléchargement ci-dessous</p>
+                                        <p className="text-sm text-green-700 font-medium">Stratégie utilisée</p>
+                                        <p className="text-lg font-bold text-green-900">{processResult.stats.strategy_used || 'FIFO'}</p>
                                     </div>
                                 </div>
 
